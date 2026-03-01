@@ -1,0 +1,32 @@
+{
+    "name": "payzcore/payzcore-php",
+    "description": "Official PHP SDK for PayzCore - Blockchain Transaction Monitoring API",
+    "type": "library",
+    "version": "1.0.1",
+    "license": "MIT",
+    "homepage": "https://payzcore.com",
+    "require": {
+        "php": ">=8.1",
+        "ext-curl": "*",
+        "ext-json": "*",
+        "ext-hash": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "PayzCore\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "PayzCore",
+            "homepage": "https://payzcore.com"
+        }
+    ],
+    "keywords": ["payzcore", "blockchain", "stablecoin", "usdt", "usdc", "trc20", "bep20", "erc20", "polygon", "arbitrum", "monitoring", "webhook"],
+    "support": {
+        "docs": "https://docs.payzcore.com",
+        "issues": "https://github.com/payzcore/php-sdk/issues",
+        "source": "https://github.com/payzcore/php-sdk"
+    },
+    "minimum-stability": "stable"
+}
