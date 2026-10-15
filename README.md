@@ -116,7 +116,8 @@ $result = $payzcore->payments->create([
 echo $result['payment']['network'];  // 'BEP20'
 echo $result['payment']['token'];  // 'USDC'
 // Static wallet projects may also return: $result['payment']['notice'],
-// $result['payment']['original_amount'], $result['payment']['requires_txid']
+// $result['payment']['originalAmount'], $result['payment']['requiresTxid']
+// $result['existing'] is true when an existing pending payment was returned
 
 // List payments
 $result = $payzcore->payments->list([
@@ -128,6 +129,8 @@ $result = $payzcore->payments->list([
 foreach ($result['payments'] as $payment) {
     echo $payment['id'] . ': ' . $payment['status'] . ' (' . $payment['token'] . ")\n";
 }
+// $result['pagination']['hasMore'] tells you if there is another page.
+// Poll for changes (webhook fallback): ['updatedAfter' => '2026-10-15T00:00:00Z']
 
 // Get payment details (latest cached status from database)
 $result = $payzcore->payments->get('payment-uuid');
@@ -167,7 +170,7 @@ $result = $admin->projects->create([
 echo $result['project']['apiKey'];       // pk_live_xxx
 echo $result['project']['webhookSecret']; // whsec_xxx
 
-// List projects
+// List projects (full keys are never listed, only $project['apiKeyPrefix'])
 $result = $admin->projects->list();
 ```
 
@@ -179,10 +182,11 @@ use PayzCore\Exceptions\WebhookSignatureException;
 
 $body = file_get_contents('php://input');
 $signature = $_SERVER['HTTP_X_PAYZCORE_SIGNATURE'] ?? '';
+$timestamp = $_SERVER['HTTP_X_PAYZCORE_TIMESTAMP'] ?? null; // required
 $secret = 'whsec_your_webhook_secret';
 
 try {
-    $event = Webhook::constructEvent($body, $signature, $secret);
+    $event = Webhook::constructEvent($body, $signature, $secret, $timestamp);
 
     switch ($event['event']) {
         case 'payment.completed':
@@ -190,8 +194,8 @@ try {
             $paymentId = $event['paymentId'];
             $amount = $event['paidAmount'];
             $ref = $event['externalRef'];
-            $network = $event['network'];   // e.g. 'TRC20'
-            $token = $event['token'];   // e.g. 'USDT' or 'USDC'
+            $network = $event['network'];   // e.g. 'TRC20' (null if no network was selected)
+            $token = $event['token'];   // e.g. 'USDT' or 'USDC' (null if no network was selected)
             break;
 
         case 'payment.overpaid':
@@ -242,7 +246,7 @@ $isValid = Webhook::verifySignature($body, $signature, $secret);
 $payzcore = new PayzCore('pk_live_xxx', [
     'baseUrl' => 'https://api.payzcore.com', // API base URL
     'timeout' => 30,                          // Request timeout in seconds
-    'maxRetries' => 2,                        // Max retries on 5xx errors
+    'maxRetries' => 2,                        // Retries on 5xx/network errors (POST only with externalOrderId)
     'masterKey' => false,                     // Use x-master-key header
 ]);
 ```
@@ -262,8 +266,7 @@ try {
     $result = $payzcore->payments->create([...]);
 } catch (ValidationException $e) {
     // 400 - Invalid parameters
-    echo $e->getMessage();
-    print_r($e->getDetails()); // Validation error details
+    echo $e->getMessage(); // e.g. 'Invalid request body'
 } catch (AuthenticationException $e) {
     // 401 - Invalid API key
 } catch (ForbiddenException $e) {
@@ -272,10 +275,12 @@ try {
     // 404 - Resource not found
 } catch (RateLimitException $e) {
     // 429 - Rate limited
-    echo $e->getRetryAfter(); // Seconds until reset (or null)
+    $wait = max(0, ($e->getRetryAfter() ?? time()) - time()); // getRetryAfter() is a Unix timestamp
+    echo $wait;               // Seconds until reset
     echo $e->isDaily();       // Whether this is a daily limit
 } catch (IdempotencyException $e) {
-    // 409 - external_order_id reused with different external_ref
+    // 409 - Conflict (e.g. external_order_id reused with a different external_ref
+    // or amount, or the payment is no longer pending)
 } catch (PayzCoreException $e) {
     // Other API errors (5xx, etc.)
     echo $e->getStatusCode();

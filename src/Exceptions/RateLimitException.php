@@ -19,6 +19,11 @@ class RateLimitException extends PayzCoreException
         $this->isDaily = $isDaily;
     }
 
+    /**
+     * Absolute Unix timestamp (seconds) when the limit resets, taken from the
+     * X-RateLimit-Reset header. It is not a duration:
+     * use max(0, $e->getRetryAfter() - time()) for the wait in seconds.
+     */
     public function getRetryAfter(): ?int
     {
         return $this->retryAfter;

@@ -18,7 +18,7 @@ class HttpClient
     private const DEFAULT_TIMEOUT = 30;
     private const DEFAULT_MAX_RETRIES = 2;
     private const RETRY_BASE_MS = 200;
-    private const SDK_VERSION = '1.0.0';
+    private const SDK_VERSION = '1.0.3';
 
     private string $apiKey;
     private string $baseUrl;
@@ -93,7 +93,15 @@ class HttpClient
 
         $lastException = null;
 
-        for ($attempt = 0; $attempt <= $this->maxRetries; $attempt++) {
+        // A POST is only retried when it carries an idempotency key
+        // (external_order_id). Otherwise a retry after a lost response could
+        // create a second payment.
+        $maxRetries = $this->maxRetries;
+        if ($method === 'POST' && empty($body['external_order_id'])) {
+            $maxRetries = 0;
+        }
+
+        for ($attempt = 0; $attempt <= $maxRetries; $attempt++) {
             if ($attempt > 0) {
                 $delayMs = self::RETRY_BASE_MS * (2 ** ($attempt - 1));
                 usleep($delayMs * 1000);
@@ -167,7 +175,8 @@ class HttpClient
                 // 5xx - retry if attempts remain
                 $lastException = $this->buildApiError($statusCode, (string)$responseBody, $responseHeaders);
             } finally {
-                curl_close($ch);
+                // curl_close() is a no-op since PHP 8.0 and deprecated in 8.5.
+                unset($ch);
             }
         }
 

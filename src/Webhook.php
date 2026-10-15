@@ -65,9 +65,9 @@ class Webhook
      *     paymentId: string,
      *     externalRef: string,
      *     externalOrderId: ?string,
-     *     network: string,
-     *     token: string,
-     *     address: string,
+     *     network: ?string,
+     *     token: ?string,
+     *     address: ?string,
      *     expectedAmount: string,
      *     paidAmount: string,
      *     txHash: ?string,
@@ -91,17 +91,20 @@ class Webhook
             throw new WebhookSignatureException('Invalid webhook payload: malformed JSON');
         }
 
-        $network = $raw['network'] ?? '';
+        $network = (string)($raw['network'] ?? '');
         if ($network !== '' && !in_array($network, self::SUPPORTED_NETWORKS, true)) {
             trigger_error("[PayzCore] Unknown network in webhook: {$network}", E_USER_WARNING);
         }
 
-        $token = $raw['token'] ?? '';
+        $token = (string)($raw['token'] ?? '');
         if ($token !== '' && !in_array($token, self::SUPPORTED_TOKENS, true)) {
             trigger_error("[PayzCore] Unknown token in webhook: {$token}", E_USER_WARNING);
         }
 
-        $required = ['event', 'payment_id', 'external_ref', 'network', 'address',
+        // network, token and address are null when the customer never picked
+        // a network (e.g. payment.cancelled / payment.expired), so they are
+        // not required here.
+        $required = ['event', 'payment_id', 'external_ref',
                      'expected_amount', 'paid_amount', 'status', 'timestamp'];
         foreach ($required as $field) {
             if (!isset($raw[$field])) {
@@ -114,9 +117,9 @@ class Webhook
             'paymentId' => $raw['payment_id'],
             'externalRef' => $raw['external_ref'],
             'externalOrderId' => $raw['external_order_id'] ?? null,
-            'network' => $raw['network'],
-            'token' => $raw['token'] ?? 'USDT',
-            'address' => $raw['address'],
+            'network' => $raw['network'] ?? null,
+            'token' => $raw['token'] ?? null,
+            'address' => $raw['address'] ?? null,
             'expectedAmount' => $raw['expected_amount'],
             'paidAmount' => $raw['paid_amount'],
             'txHash' => $raw['tx_hash'] ?? null,
@@ -126,6 +129,11 @@ class Webhook
             'metadata' => $raw['metadata'] ?? [],
             'timestamp' => $raw['timestamp'],
         ];
+
+        // Only present (true) when funds arrived after the payment had expired
+        if (($raw['late_payment'] ?? false) === true) {
+            $result['latePayment'] = true;
+        }
 
         // Payment link buyer fields (only present for payment link payments)
         if (isset($raw['buyer_email'])) {
@@ -161,9 +169,9 @@ class Webhook
      *     paymentId: string,
      *     externalRef: string,
      *     externalOrderId: ?string,
-     *     network: string,
-     *     token: string,
-     *     address: string,
+     *     network: ?string,
+     *     token: ?string,
+     *     address: ?string,
      *     expectedAmount: string,
      *     paidAmount: string,
      *     txHash: ?string,

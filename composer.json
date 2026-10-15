@@ -2,7 +2,7 @@
     "name": "payzcore/payzcore-php",
     "description": "Official PHP SDK for PayzCore - Blockchain Transaction Monitoring API",
     "type": "library",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "license": "MIT",
     "homepage": "https://payzcore.com",
     "require": {
@@ -27,6 +27,9 @@
         "docs": "https://docs.payzcore.com",
         "issues": "https://github.com/payzcore/php-sdk/issues",
         "source": "https://github.com/payzcore/php-sdk"
+    },
+    "scripts": {
+        "test": "php tests/run.php"
     },
     "minimum-stability": "stable"
 }

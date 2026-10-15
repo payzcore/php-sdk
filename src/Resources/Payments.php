@@ -78,7 +78,8 @@ class Payments
 
         $result = [
             'success' => true,
-            'existing' => (bool)$raw['existing'],
+            // The API only sends "existing" when an existing payment is returned.
+            'existing' => (bool)($raw['existing'] ?? false),
             'payment' => [
                 'id' => $payment['id'],
                 'address' => $payment['address'] ?? null,
@@ -105,7 +106,7 @@ class Payments
     /**
      * List payments.
      *
-     * @param array{status?: string, limit?: int, offset?: int} $params
+     * @param array{status?: string, limit?: int, offset?: int, createdAfter?: string, updatedAfter?: string} $params
      * @return array{
      *     success: true,
      *     payments: array<array{
@@ -121,8 +122,10 @@ class Payments
      *         txHash: ?string,
      *         expiresAt: string,
      *         paidAt: ?string,
-     *         createdAt: string
-     *     }>
+     *         createdAt: string,
+     *         updatedAt: ?string
+     *     }>,
+     *     pagination: ?array{total: int, limit: int, offset: int, hasMore: bool}
      * }
      */
     public function list(array $params = []): array
@@ -136,6 +139,12 @@ class Payments
         }
         if (isset($params['offset'])) {
             $query['offset'] = (string)$params['offset'];
+        }
+        if (isset($params['createdAfter'])) {
+            $query['created_after'] = $params['createdAfter'];
+        }
+        if (isset($params['updatedAfter'])) {
+            $query['updated_after'] = $params['updatedAfter'];
         }
 
         $qs = http_build_query($query);
@@ -156,11 +165,23 @@ class Payments
             'expiresAt' => $p['expires_at'],
             'paidAt' => $p['paid_at'] ?? null,
             'createdAt' => $p['created_at'],
+            'updatedAt' => $p['updated_at'] ?? null,
         ], $raw['payments']);
+
+        $pagination = null;
+        if (isset($raw['pagination']) && is_array($raw['pagination'])) {
+            $pagination = [
+                'total' => (int)($raw['pagination']['total'] ?? 0),
+                'limit' => (int)($raw['pagination']['limit'] ?? 0),
+                'offset' => (int)($raw['pagination']['offset'] ?? 0),
+                'hasMore' => (bool)($raw['pagination']['has_more'] ?? false),
+            ];
+        }
 
         return [
             'success' => true,
             'payments' => $payments,
+            'pagination' => $pagination,
         ];
     }
 
@@ -179,6 +200,7 @@ class Payments
      *         token: ?string,
      *         txHash: ?string,
      *         expiresAt: string,
+     *         paidAt: ?string,
      *         awaitingNetwork: ?bool,
      *         transactions: array<array{txHash: string, amount: string, from: string, confirmed: bool, confirmations: int}>
      *     }
@@ -209,6 +231,7 @@ class Payments
                 'token' => $payment['token'] ?? null,
                 'txHash' => $payment['tx_hash'] ?? null,
                 'expiresAt' => $payment['expires_at'],
+                'paidAt' => $payment['paid_at'] ?? null,
                 'awaitingNetwork' => $payment['awaiting_network'] ?? null,
                 'transactions' => $transactions,
             ],

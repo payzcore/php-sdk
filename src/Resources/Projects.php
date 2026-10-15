@@ -77,7 +77,7 @@ class Projects
      *         id: string,
      *         name: string,
      *         slug: string,
-     *         apiKey: string,
+     *         apiKeyPrefix: ?string,
      *         webhookUrl: ?string,
      *         isActive: bool,
      *         createdAt: string
@@ -92,7 +92,8 @@ class Projects
             'id' => $p['id'],
             'name' => $p['name'],
             'slug' => $p['slug'],
-            'apiKey' => $p['api_key'],
+            // The list endpoint never returns full keys, only a prefix.
+            'apiKeyPrefix' => $p['api_key_prefix'] ?? null,
             'webhookUrl' => $p['webhook_url'] ?? null,
             'isActive' => (bool)$p['is_active'],
             'createdAt' => $p['created_at'],
